@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --paper: #f5f0e7;
+    --paper-2: #fbf8f2;
+    --ink: #211f1b;
+    --muted: #777067;
+    --faint: #aaa298;
+    --line: #ddd6ca;
+    --line-subtle: #e8e2d8;
+    --accent: #c9532f;
+    --accent-hover: #b54624;
+    --accent-soft: #f0d8cc;
+    --accent-muted: #faf0eb;
+    --white: #fffdf9;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--ink);
+    background-color: var(--paper);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Utility numbers: monospace and tabular numerals for operational and financial data */
+  .tabular-numbers,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Restaurant Table Ticket Perforated / Scalloped Borders */
+.ticket-edge-bottom {
+  background-image: radial-gradient(circle at 10px 0, transparent 6px, #211F1B 6.5px);
+  background-size: 20px 100%;
+}
+
+.ticket-divider {
+  background-image: linear-gradient(to right, #DDD6CA 50%, rgba(255,255,255,0) 0%);
+  background-position: bottom;
+  background-size: 10px 1.5px;
+  background-repeat: repeat-x;
+}
+
+.ticket-notch-left {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 calc(50% + 8px), 8px 50%, 0 calc(50% - 8px));
+}
+
+/* Touch targets and accessible focus styling */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

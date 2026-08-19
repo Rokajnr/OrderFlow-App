@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "TableSession": {
+      "title": "TableSession",
+      "description": "Active dining tab and live order session for a restaurant table",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique session/table ID" },
+        "tableId": { "type": "string", "description": "ID of the assigned physical table" },
+        "tableName": { "type": "string", "description": "Display name of table (e.g. Table 12)" },
+        "tableNumber": { "type": "number", "description": "Table numeric index" },
+        "status": {
+          "type": "string",
+          "enum": ["available", "occupied", "waiting_payment", "unattended"],
+          "description": "Operational table status"
+        },
+        "currentGuest": { "type": "string", "description": "Active user identity on the device" },
+        "guests": {
+          "type": "array",
+          "description": "List of active guests who ordered at this table"
+        },
+        "items": {
+          "type": "array",
+          "description": "List of ordered food and drink items on this table"
+        },
+        "subtotal": { "type": "number", "description": "Subtotal in MWK" },
+        "serviceCharge": { "type": "number", "description": "10% service charge in MWK" },
+        "totalAmount": { "type": "number", "description": "Total outstanding amount in MWK" },
+        "paidAmount": { "type": "number", "description": "Total amount paid so far in MWK" },
+        "paidBy": { "type": "string", "description": "Name of guest who made payment" },
+        "paymentState": {
+          "type": "string",
+          "enum": ["IDLE", "PAYMENT_REQUESTED", "PROCESSING", "READY_TO_CLOSE", "CANCELLED"],
+          "description": "State machine of table billing"
+        },
+        "paymentMethod": { "type": "string", "description": "Selected method: mobile_money, cash, card" },
+        "mobileMoneyProvider": { "type": "string", "description": "airtel or mpamba" },
+        "phoneNumber": { "type": "string", "description": "USSD prompt phone number" },
+        "assistanceRequests": {
+          "type": "array",
+          "description": "Active staff assistance calls for the table"
+        },
+        "paymentHistory": {
+          "type": "array",
+          "description": "Historical payment receipts for this session"
+        },
+        "isPaid": { "type": "boolean", "description": "Whether current items are fully settled" },
+        "createdAt": { "type": "number", "description": "Unix timestamp session opened" },
+        "lastActiveTime": { "type": "number", "description": "Unix timestamp of last action" },
+        "updatedAt": { "type": "number", "description": "Unix timestamp of last modification" }
+      },
+      "required": ["id", "tableId", "tableName", "status"]
+    },
+    "RestaurantTable": {
+      "title": "RestaurantTable",
+      "description": "Physical restaurant floor table record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Table unique ID" },
+        "name": { "type": "string", "description": "Table display name" },
+        "number": { "type": "number", "description": "Table number" },
+        "capacity": { "type": "number", "description": "Seating capacity" },
+        "section": { "type": "string", "description": "Dining area section" },
+        "assignedWaiter": { "type": "string", "description": "Assigned staff member" }
+      },
+      "required": ["id", "name", "number", "capacity", "section"]
+    }
+  },
+  "firestore": {
+    "/table_sessions/{tableId}": {
+      "schema": "TableSession",
+      "description": "Real-time synchronizing live table session and order tabs"
+    },
+    "/restaurant_tables/{tableId}": {
+      "schema": "RestaurantTable",
+      "description": "Restaurant table configurations and waiter assignments"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "OrderFlow — Restaurant & Bar Operations",
+  "description": "Scan, order, and pay platform with customer PWA, waiter app, kitchen display, and manager dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
