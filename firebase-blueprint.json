@@ -1,14 +1,30 @@
 {
   "entities": {
+    "Tenant": {
+      "title": "Tenant",
+      "description": "Multi-tenant restaurant account and configuration record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique tenant ID (e.g. rest_lakeview_01)" },
+        "slug": { "type": "string", "description": "Subdomain slug (e.g. lakeview)" },
+        "name": { "type": "string", "description": "Official restaurant name" },
+        "tagline": { "type": "string", "description": "Restaurant slogan / description" },
+        "location": { "type": "string", "description": "Physical address" },
+        "currency": { "type": "string", "description": "Currency code (MWK)" },
+        "currencySymbol": { "type": "string", "description": "Currency display symbol (MK)" },
+        "serviceChargeRate": { "type": "number", "description": "Service charge percentage (e.g. 0.10)" },
+        "idleAlertMinutes": { "type": "number", "description": "Inactivity threshold in minutes" }
+      },
+      "required": ["id", "slug", "name"]
+    },
     "TableSession": {
       "title": "TableSession",
       "description": "Active dining tab and live order session for a restaurant table",
       "type": "object",
       "properties": {
-        "id": { "type": "string", "description": "Unique session/table ID" },
+        "sessionId": { "type": "string", "description": "Unique session ID" },
         "tableId": { "type": "string", "description": "ID of the assigned physical table" },
         "tableName": { "type": "string", "description": "Display name of table (e.g. Table 12)" },
-        "tableNumber": { "type": "number", "description": "Table numeric index" },
         "status": {
           "type": "string",
           "enum": ["available", "occupied", "waiting_payment", "unattended"],
@@ -24,13 +40,13 @@
           "description": "List of ordered food and drink items on this table"
         },
         "subtotal": { "type": "number", "description": "Subtotal in MWK" },
-        "serviceCharge": { "type": "number", "description": "10% service charge in MWK" },
+        "serviceCharge": { "type": "number", "description": "Service charge in MWK" },
         "totalAmount": { "type": "number", "description": "Total outstanding amount in MWK" },
         "paidAmount": { "type": "number", "description": "Total amount paid so far in MWK" },
         "paidBy": { "type": "string", "description": "Name of guest who made payment" },
         "paymentState": {
           "type": "string",
-          "enum": ["IDLE", "PAYMENT_REQUESTED", "PROCESSING", "READY_TO_CLOSE", "CANCELLED"],
+          "enum": ["UNPAID", "PAYMENT_REQUESTED", "PROCESSING", "WAITING_FOR_CONFIRMATION", "PAYMENT_CONFIRMED", "READY_TO_CLOSE", "SESSION_CLOSED", "FAILED"],
           "description": "State machine of table billing"
         },
         "paymentMethod": { "type": "string", "description": "Selected method: mobile_money, cash, card" },
@@ -46,10 +62,9 @@
         },
         "isPaid": { "type": "boolean", "description": "Whether current items are fully settled" },
         "createdAt": { "type": "number", "description": "Unix timestamp session opened" },
-        "lastActiveTime": { "type": "number", "description": "Unix timestamp of last action" },
-        "updatedAt": { "type": "number", "description": "Unix timestamp of last modification" }
+        "lastActiveTime": { "type": "number", "description": "Unix timestamp of last action" }
       },
-      "required": ["id", "tableId", "tableName", "status"]
+      "required": ["sessionId", "tableId", "tableName", "status"]
     },
     "RestaurantTable": {
       "title": "RestaurantTable",
@@ -67,13 +82,21 @@
     }
   },
   "firestore": {
+    "/tenants/{tenantId}": {
+      "schema": "Tenant",
+      "description": "Tenant restaurant registry"
+    },
+    "/tenants/{tenantId}/table_sessions/{tableId}": {
+      "schema": "TableSession",
+      "description": "Tenant-scoped live table sessions and order tabs"
+    },
+    "/tenants/{tenantId}/restaurant_tables/{tableId}": {
+      "schema": "RestaurantTable",
+      "description": "Tenant-scoped table records"
+    },
     "/table_sessions/{tableId}": {
       "schema": "TableSession",
-      "description": "Real-time synchronizing live table session and order tabs"
-    },
-    "/restaurant_tables/{tableId}": {
-      "schema": "RestaurantTable",
-      "description": "Restaurant table configurations and waiter assignments"
+      "description": "Real-time synchronizing live table session and order tabs (root fallback)"
     }
   }
 }

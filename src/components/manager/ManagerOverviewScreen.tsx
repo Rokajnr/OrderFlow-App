@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRestaurant } from '../../context/RestaurantContext';
+import { useTenant } from '../../context/TenantContext';
+import { useAuth } from '../../context/AuthContext';
 import { formatKwacha } from '../../utils/formatters';
 import { TableStatus, TableSession } from '../../types';
 import {
@@ -16,9 +18,17 @@ import {
   Flame,
   Award,
   ShieldAlert,
+  KeyRound,
+  UserCheck,
 } from 'lucide-react';
 import { BrandMark } from '../common/BrandMark';
 import { StatusBadge } from '../common/StatusBadge';
+import { StaffManagementModal } from './StaffManagementModal';
+import { ZReportModal } from './ZReportModal';
+import { TableQrGeneratorModal } from './TableQrGeneratorModal';
+import { TenantOnboardingModal } from './TenantOnboardingModal';
+import { MerchantSettingsModal } from './MerchantSettingsModal';
+import { FileText, QrCode, Building2 } from 'lucide-react';
 
 interface ManagerOverviewScreenProps {
   onSelectTable: (tableId: string) => void;
@@ -26,7 +36,14 @@ interface ManagerOverviewScreenProps {
 }
 
 export function ManagerOverviewScreen({ onSelectTable, onGoToMenu }: ManagerOverviewScreenProps) {
+  const { tenant, formatPrice } = useTenant();
+  const { currentStaff } = useAuth();
   const { tables, sessions, walkoutLogs } = useRestaurant();
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [showZReportModal, setShowZReportModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [showTenantOnboardModal, setShowTenantOnboardModal] = useState(false);
+  const [showMerchantModal, setShowMerchantModal] = useState(false);
 
   // Metrics computation
   let occupiedCount = 0;
@@ -73,7 +90,47 @@ export function ManagerOverviewScreen({ onSelectTable, onGoToMenu }: ManagerOver
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setShowZReportModal(true)}
+              className="py-2 px-3 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold rounded-xl border border-stone-700 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <FileText className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Z-Report &amp; Till</span>
+            </button>
+
+            <button
+              onClick={() => setShowQrModal(true)}
+              className="py-2 px-3 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold rounded-xl border border-stone-700 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <QrCode className="w-3.5 h-3.5 text-sky-400" />
+              <span>Table QR Kit</span>
+            </button>
+
+            <button
+              onClick={() => setShowMerchantModal(true)}
+              className="py-2 px-3 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold rounded-xl border border-stone-700 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <CreditCard className="w-3.5 h-3.5 text-[#C9532F]" />
+              <span>PayChangu Keys</span>
+            </button>
+
+            <button
+              onClick={() => setShowTenantOnboardModal(true)}
+              className="py-2 px-3 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold rounded-xl border border-stone-700 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <Building2 className="w-3.5 h-3.5 text-amber-400" />
+              <span>+ Add Venue</span>
+            </button>
+
+            <button
+              onClick={() => setShowStaffModal(true)}
+              className="py-2 px-3.5 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold rounded-xl border border-stone-700 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-[#E07A5F]" />
+              <span>Staff &amp; PINs</span>
+            </button>
+
             <button
               onClick={onGoToMenu}
               className="py-2 px-4 bg-[#C9532F] hover:bg-[#B54624] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
@@ -83,6 +140,41 @@ export function ManagerOverviewScreen({ onSelectTable, onGoToMenu }: ManagerOver
           </div>
         </div>
       </header>
+
+      {showStaffModal && (
+        <StaffManagementModal
+          isOpen={showStaffModal}
+          onClose={() => setShowStaffModal(false)}
+        />
+      )}
+
+      {showZReportModal && (
+        <ZReportModal
+          isOpen={showZReportModal}
+          onClose={() => setShowZReportModal(false)}
+        />
+      )}
+
+      {showQrModal && (
+        <TableQrGeneratorModal
+          isOpen={showQrModal}
+          onClose={() => setShowQrModal(false)}
+        />
+      )}
+
+      {showTenantOnboardModal && (
+        <TenantOnboardingModal
+          isOpen={showTenantOnboardModal}
+          onClose={() => setShowTenantOnboardModal(false)}
+        />
+      )}
+
+      {showMerchantModal && (
+        <MerchantSettingsModal
+          isOpen={showMerchantModal}
+          onClose={() => setShowMerchantModal(false)}
+        />
+      )}
 
       <main className="max-w-6xl mx-auto px-4 lg:px-6 pt-6 space-y-6">
         {/* Metric Cards Grid */}

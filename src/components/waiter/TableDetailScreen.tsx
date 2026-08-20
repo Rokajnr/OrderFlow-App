@@ -224,17 +224,34 @@ export function TableDetailScreen({ tableId, onBack }: TableDetailScreenProps) {
 
           <div className="flex items-center gap-4 text-xs font-mono">
             <div>
-              <span className="text-[#777067] mr-1.5">Subtotal:</span>
-              <span className="font-bold tabular-nums">{formatKwacha(session.subtotal)}</span>
-            </div>
-            <div>
-              <span className="text-[#777067] mr-1.5">Total:</span>
+              <span className="text-[#777067] mr-1.5">Outstanding:</span>
               <span className="font-black text-[#C9532F] text-sm tabular-nums">
                 {formatKwacha(session.totalAmount)}
               </span>
             </div>
           </div>
         </div>
+
+        {/* Partial & Split Payment History Log */}
+        {session.paymentHistory && session.paymentHistory.length > 0 && (
+          <div className="bg-[#FAF0EB] border border-[#C9532F]/20 rounded-2xl p-3.5 space-y-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#C9532F] block">
+              Payment Receipts Log ({session.paymentHistory.length})
+            </span>
+            <div className="space-y-1.5">
+              {session.paymentHistory.map((rec) => (
+                <div key={rec.id} className="flex justify-between items-center text-xs bg-white/70 px-3 py-1.5 rounded-xl border border-stone-200">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="font-bold text-[#211F1B]">{rec.paidBy}</span>
+                    <span className="text-[10px] text-stone-500 uppercase">({rec.method})</span>
+                  </div>
+                  <span className="font-mono font-bold text-emerald-700">{formatKwacha(rec.amount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Live Order Items Card List */}
         <div className="space-y-3">

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { TenantProvider, useTenant } from './context/TenantContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { RestaurantProvider, useRestaurant } from './context/RestaurantContext';
 import { TableWelcomeScreen } from './components/customer/TableWelcomeScreen';
 import { MenuBrowseScreen } from './components/customer/MenuBrowseScreen';
@@ -12,6 +14,7 @@ import { ManagerOverviewScreen } from './components/manager/ManagerOverviewScree
 import { MenuManagementScreen } from './components/manager/MenuManagementScreen';
 import { NotificationToastContainer } from './components/common/NotificationToastContainer';
 import { NotificationTesterModal } from './components/common/NotificationTesterModal';
+import { StaffPinLockModal } from './components/common/StaffPinLockModal';
 import { BrandMark } from './components/common/BrandMark';
 import { BeforeInstallPromptEvent } from './utils/pwa';
 import {
@@ -29,6 +32,10 @@ import {
   X,
   Bell,
   Move,
+  Building2,
+  Lock,
+  LogOut,
+  UserCheck,
 } from 'lucide-react';
 
 type RoleView = 'customer' | 'waiter' | 'kitchen' | 'manager';
@@ -38,12 +45,22 @@ type ManagerSubView = 'overview' | 'menu';
 type DockPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
 
 function MainApp() {
+  const { tenant, allTenants, setTenantSlug, isSubdomainDetected, detectedSubdomain } = useTenant();
+  const {
+    currentStaff,
+    isAuthenticatedStaff,
+    isPinModalOpen,
+    openPinModal,
+    logoutStaff,
+  } = useAuth();
   const {
     activeTableId,
     setActiveTableId,
     tables,
     resetDemoData,
   } = useRestaurant();
+
+  const [showTenantPicker, setShowTenantPicker] = useState<boolean>(false);
 
   const [role, setRole] = useState<RoleView>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -57,6 +74,33 @@ function MainApp() {
     }
     return 'customer';
   });
+
+  const handleSwitchRoleWithSecurity = (targetRole: RoleView) => {
+    if (targetRole === 'customer') {
+      setRole('customer');
+      return;
+    }
+
+    // If staff is already authenticated and matches role or is manager, switch immediately
+    if (currentStaff) {
+      if (
+        currentStaff.role === targetRole ||
+        currentStaff.role === 'manager' ||
+        currentStaff.role === 'owner' ||
+        (targetRole === 'kitchen' && (currentStaff.role === 'kitchen' || currentStaff.role === 'bartender'))
+      ) {
+        setRole(targetRole);
+        return;
+      }
+    }
+
+    // Otherwise prompt for fast PIN verification
+    openPinModal(targetRole as any, (success) => {
+      if (success) {
+        setRole(targetRole);
+      }
+    });
+  };
 
   const [customerView, setCustomerView] = useState<CustomerSubView>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -324,26 +368,75 @@ function MainApp() {
       {!isControlsHidden ? (
         <header className="bg-[#141210] border-b border-[#2C2723] text-stone-200 sticky top-0 z-40 px-3 sm:px-6 py-2.5 shadow-lg transition-all duration-300">
           <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5">
-            {/* Brand Title */}
+            {/* Brand Title & Multi-Tenant Switcher */}
             <div className="flex items-center gap-2.5">
               <BrandMark size="sm" variant="terracotta" />
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-extrabold text-sm text-white tracking-tight">OrderFlow</span>
-                  <span className="text-[10px] font-bold bg-[#C9532F]/20 text-[#F0D8CC] px-2 py-0.5 rounded-full border border-[#C9532F]/30">
-                    Lakeview
-                  </span>
+                  
+                  {/* Tenant Subdomain Badge / Picker */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowTenantPicker(!showTenantPicker)}
+                      className="text-[10.5px] font-bold bg-[#C9532F]/20 hover:bg-[#C9532F]/30 text-[#F0D8CC] px-2 py-0.5 rounded-full border border-[#C9532F]/30 transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Switch restaurant tenant"
+                    >
+                      <Building2 className="w-3 h-3 text-[#E07A5F]" />
+                      <span>{tenant.name.split(' ')[0]}</span>
+                      <span className="opacity-60 text-[9px]">({tenant.slug}.orderflow.mw)</span>
+                      <ChevronDown className="w-2.5 h-2.5 text-stone-400" />
+                    </button>
+
+                    {showTenantPicker && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40 bg-transparent"
+                          onClick={() => setShowTenantPicker(false)}
+                        />
+                        <div className="absolute left-0 top-full mt-1.5 w-64 bg-[#211F1B] border border-stone-700 rounded-2xl shadow-2xl p-2 z-50 text-xs">
+                          <div className="text-[10px] font-bold text-stone-400 uppercase px-2 py-1 border-b border-stone-800">
+                            Select Restaurant Subdomain
+                          </div>
+                          <div className="mt-1 space-y-1">
+                            {allTenants.map((t) => (
+                              <button
+                                key={t.slug}
+                                onClick={() => {
+                                  setTenantSlug(t.slug);
+                                  setShowTenantPicker(false);
+                                }}
+                                className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-between cursor-pointer ${
+                                  tenant.slug === t.slug
+                                    ? 'bg-[#C9532F] text-white'
+                                    : 'text-stone-300 hover:bg-[#2A2520]'
+                                }`}
+                              >
+                                <div>
+                                  <div className="font-bold">{t.name}</div>
+                                  <div className={`text-[10px] ${tenant.slug === t.slug ? 'text-white/80' : 'text-stone-400'}`}>
+                                    {t.slug}.orderflow.mw
+                                  </div>
+                                </div>
+                                {tenant.slug === t.slug && <Check className="w-3.5 h-3.5" />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <p className="text-[10px] text-[#AAA298] hidden sm:block">
-                  Malawi Kwacha (MK) · Real-time Restaurant Operations
+                  {tenant.location} · {tenant.currencySymbol} ({tenant.currency})
                 </p>
               </div>
             </div>
 
-            {/* Role Navigation Pills */}
+            {/* Role Navigation Pills with PIN Security */}
             <div className="flex items-center gap-1 bg-[#231F1B] p-1 rounded-2xl border border-stone-800">
               <button
-                onClick={() => setRole('customer')}
+                onClick={() => handleSwitchRoleWithSecurity('customer')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                   role === 'customer'
                     ? 'bg-[#C9532F] text-white shadow-xs'
@@ -355,7 +448,7 @@ function MainApp() {
               </button>
 
               <button
-                onClick={() => setRole('waiter')}
+                onClick={() => handleSwitchRoleWithSecurity('waiter')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                   role === 'waiter'
                     ? 'bg-[#C9532F] text-white shadow-xs'
@@ -364,10 +457,11 @@ function MainApp() {
               >
                 <Users className="w-3.5 h-3.5" />
                 <span>Waiter</span>
+                {role !== 'waiter' && !currentStaff && <Lock className="w-2.5 h-2.5 opacity-60 ml-0.5" />}
               </button>
 
               <button
-                onClick={() => setRole('kitchen')}
+                onClick={() => handleSwitchRoleWithSecurity('kitchen')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                   role === 'kitchen'
                     ? 'bg-[#C9532F] text-white shadow-xs'
@@ -376,10 +470,11 @@ function MainApp() {
               >
                 <ChefHat className="w-3.5 h-3.5" />
                 <span>Kitchen (KDS)</span>
+                {role !== 'kitchen' && !currentStaff && <Lock className="w-2.5 h-2.5 opacity-60 ml-0.5" />}
               </button>
 
               <button
-                onClick={() => setRole('manager')}
+                onClick={() => handleSwitchRoleWithSecurity('manager')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                   role === 'manager'
                     ? 'bg-[#C9532F] text-white shadow-xs'
@@ -388,8 +483,25 @@ function MainApp() {
               >
                 <BarChart3 className="w-3.5 h-3.5" />
                 <span>Manager</span>
+                {role !== 'manager' && !currentStaff && <Lock className="w-2.5 h-2.5 opacity-60 ml-0.5" />}
               </button>
             </div>
+
+            {/* Current Staff Badge & End Shift Button */}
+            {currentStaff && (
+              <div className="hidden lg:flex items-center gap-2 bg-[#2A2420] border border-stone-700 px-3 py-1 rounded-xl text-xs text-stone-200">
+                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="font-bold">{currentStaff.name}</span>
+                <span className="text-[10px] text-stone-400 capitalize">({currentStaff.role})</span>
+                <button
+                  onClick={logoutStaff}
+                  className="text-stone-400 hover:text-rose-400 ml-1 p-0.5"
+                  title="Log out staff member"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* Controls Hub */}
             <div className="flex items-center gap-2">
@@ -849,14 +961,23 @@ function MainApp() {
         isOpen={showNotificationTester}
         onClose={() => setShowNotificationTester(false)}
       />
+
+      {/* Staff PIN Lock Screen Modal */}
+      {isPinModalOpen && (
+        <StaffPinLockModal />
+      )}
     </div>
   );
 }
 
 export default function App() {
   return (
-    <RestaurantProvider>
-      <MainApp />
-    </RestaurantProvider>
+    <TenantProvider>
+      <AuthProvider>
+        <RestaurantProvider>
+          <MainApp />
+        </RestaurantProvider>
+      </AuthProvider>
+    </TenantProvider>
   );
 }

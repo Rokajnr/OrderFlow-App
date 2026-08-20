@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRestaurant } from '../../context/RestaurantContext';
+import { useTenant } from '../../context/TenantContext';
 import { formatKwacha } from '../../utils/formatters';
 import {
   ArrowLeft,
@@ -15,9 +16,14 @@ import {
   AlertTriangle,
   LogOut,
   RefreshCw,
+  Divide,
+  Users,
 } from 'lucide-react';
 import { BrandMark } from '../common/BrandMark';
 import { OrderFlowButton } from '../common/OrderFlowButton';
+import { BillSplitCalculator } from './BillSplitCalculator';
+import { PayChanguUssdSimulator } from './PayChanguUssdSimulator';
+import { FiscalReceiptModal } from './FiscalReceiptModal';
 
 interface BillAndPaymentScreenProps {
   onBackToTracker: () => void;
@@ -30,16 +36,24 @@ export function BillAndPaymentScreen({
   onBackToMenu,
   onLeaveTable,
 }: BillAndPaymentScreenProps) {
+  const { tenant, formatPrice } = useTenant();
   const {
     activeSession,
     currentGuest,
     requestBill,
     startMobileMoneyPayment,
     confirmPayment,
+    confirmSplitPayment,
     cancelPaymentPrompt,
     submitFeedback,
     leaveTableSession,
   } = useRestaurant();
+
+  // Split view toggle
+  const [isSplittingBill, setIsSplittingBill] = useState(false);
+  const [splitPortionDescription, setSplitPortionDescription] = useState<string | null>(null);
+  const [splitTargetItemIds, setSplitTargetItemIds] = useState<string[] | undefined>(undefined);
+  const [customPayAmount, setCustomPayAmount] = useState<number | null>(null);
 
   // Find active items for this bill cycle (unpaid active items, or all active items if in settled view)
   const unpaidItems = activeSession.items.filter((i) => i.status !== 'VOIDED' && !i.paid);
@@ -86,6 +100,8 @@ export function BillAndPaymentScreen({
     }
   }, [activeSession.paymentState, activeSession.isPaid, unpaidItems.length]);
 
+  const effectivePayAmount = customPayAmount !== null ? customPayAmount : totalAmount;
+
   const handleStartMobileMoney = () => {
     setIsProcessingAction(true);
     setTimeout(() => {
@@ -106,7 +122,18 @@ export function BillAndPaymentScreen({
   };
 
   const handleSimulatePinSuccess = () => {
-    confirmPayment(activeSession.tableId, 'mobile_money', totalAmount, currentGuest);
+    if (customPayAmount !== null) {
+      confirmSplitPayment(
+        activeSession.tableId,
+        'by_item',
+        customPayAmount,
+        'mobile_money',
+        currentGuest || 'Guest',
+        splitTargetItemIds
+      );
+    } else {
+      confirmPayment(activeSession.tableId, 'mobile_money', totalAmount, currentGuest);
+    }
     setStep('success');
   };
 
@@ -238,7 +265,61 @@ export function BillAndPaymentScreen({
                   {formatKwacha(totalAmount)}
                 </span>
               </div>
+
+              {/* Split Bill CTA */}
+              <div className="pt-3 border-t border-[#DDD6CA]/60 mt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsSplittingBill(true)}
+                  className="w-full py-2.5 px-3 bg-[#EDE8DF] hover:bg-[#DDD6CA] text-[#211F1B] rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Divide className="w-4 h-4 text-[#C9532F]" />
+                  <span>Split this bill (Even, by Guest, or by Item)</span>
+                </button>
+              </div>
             </div>
+
+            {/* Split Calculator View if activated */}
+            {isSplittingBill && (
+              <BillSplitCalculator
+                onBackToFullBill={() => {
+                  setIsSplittingBill(false);
+                  setSplitPortionDescription(null);
+                  setSplitTargetItemIds(undefined);
+                  setCustomPayAmount(null);
+                }}
+                onInitiatePayment={(amount, description, itemIds) => {
+                  setCustomPayAmount(amount);
+                  setSplitPortionDescription(description);
+                  setSplitTargetItemIds(itemIds);
+                  setIsSplittingBill(false);
+                }}
+              />
+            )}
+
+            {/* Custom Split Portion Banner */}
+            {customPayAmount !== null && (
+              <div className="p-3.5 bg-[#FAF0EB] border border-[#C9532F]/40 rounded-2xl flex items-center justify-between gap-2 text-xs">
+                <div>
+                  <span className="font-extrabold text-[#211F1B] block">
+                    Paying Split Portion: {splitPortionDescription}
+                  </span>
+                  <span className="text-sm font-black font-mono text-[#C9532F]">
+                    {formatKwacha(customPayAmount)}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    setCustomPayAmount(null);
+                    setSplitPortionDescription(null);
+                    setSplitTargetItemIds(undefined);
+                  }}
+                  className="text-[11px] font-bold text-[#777067] hover:text-[#211F1B] underline"
+                >
+                  Reset to Full
+                </button>
+              </div>
+            )}
 
             {/* Choose Payment Method Title */}
             <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#777067] pt-1 px-1">
@@ -323,7 +404,7 @@ export function BillAndPaymentScreen({
                 className="w-full py-3.5 px-4 bg-[#C9532F] hover:bg-[#B54624] active:scale-[0.99] text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-70"
               >
                 <span>
-                  Pay {formatKwacha(totalAmount)} via {selectedProvider === 'mpamba' ? 'Mpamba' : 'Airtel Money'}
+                  Pay {formatKwacha(effectivePayAmount)} via {selectedProvider === 'mpamba' ? 'Mpamba' : 'Airtel Money'}
                 </span>
                 <ChevronRight className="w-4 h-4 shrink-0" />
               </button>
@@ -364,7 +445,7 @@ export function BillAndPaymentScreen({
         )}
 
         {/* ========================================================================= */}
-        {/* STATE 2: PROCESSING (USSD PUSH SENT — WITH RADIATING GLOWING ANIMATION) */}
+        {/* STATE 2: PROCESSING (USSD PUSH SENT — WITH HANDSET SIMULATOR OPTION) */}
         {/* ========================================================================= */}
         {step === 'processing' && (
           <div className="space-y-4 animate-in fade-in duration-200">
@@ -385,44 +466,26 @@ export function BillAndPaymentScreen({
                 <p className="text-xs text-[#777067] mt-1.5 leading-relaxed max-w-xs mx-auto">
                   Please enter your <strong className="text-[#211F1B]">{selectedProvider === 'airtel' ? 'Airtel Money' : 'TNM Mpamba'}</strong> PIN on{' '}
                   <span className="font-mono font-bold text-[#211F1B]">{phoneNumber}</span> to approve{' '}
-                  <strong className="text-[#C9532F] font-mono tabular-nums">{formatKwacha(totalAmount)}</strong>.
+                  <strong className="text-[#C9532F] font-mono tabular-nums">{formatKwacha(effectivePayAmount)}</strong>.
                 </p>
               </div>
 
               <div className="p-3 bg-[#F5F0E7] rounded-2xl border border-[#DDD6CA] text-xs font-mono text-[#777067] flex items-center justify-center gap-2">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#C9532F]" />
-                <span>Awaiting network settlement approval…</span>
+                <span>Awaiting PayChangu webhook confirmation…</span>
               </div>
 
-              {/* Simulation triggers for testing and demo */}
-              <div className="pt-3 border-t border-[#DDD6CA] space-y-2">
-                <span className="text-[10.5px] font-bold text-[#AAA298] block uppercase">
-                  Interactive Network Simulation
-                </span>
-                <OrderFlowButton
-                  variant="secondary"
-                  size="md"
-                  fullWidth
-                  onClick={handleSimulatePinSuccess}
-                >
-                  Simulate PIN Entered ✓
-                </OrderFlowButton>
-                <OrderFlowButton
-                  variant="outline"
-                  size="md"
-                  fullWidth
-                  onClick={handleSimulateFailure}
-                >
-                  Simulate Timeout / Insufficient Funds
-                </OrderFlowButton>
-                <button
-                  type="button"
-                  onClick={handleFallbackCash}
-                  className="w-full text-xs font-bold text-[#777067] hover:text-[#211F1B] py-1 cursor-pointer"
-                >
-                  Cancel and Pay Cash / POS Instead
-                </button>
-              </div>
+              {/* Interactive Phone Simulator Component */}
+              <PayChanguUssdSimulator
+                provider={selectedProvider}
+                phoneNumber={phoneNumber}
+                amount={effectivePayAmount}
+                onSuccess={handleSimulatePinSuccess}
+                onFailure={(reason) => {
+                  handleSimulateFailure();
+                }}
+                onCancel={handleFallbackCash}
+              />
             </div>
           </div>
         )}
@@ -562,78 +625,20 @@ export function BillAndPaymentScreen({
           </div>
         )}
 
-        {/* Digital Receipt Modal */}
-        {showReceiptModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-            <div className="bg-[#FFFDF9] rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-[#DDD6CA] text-left">
-              <div className="text-center pb-4 border-b border-dashed border-[#DDD6CA]">
-                <BrandMark size="md" variant="terracotta" className="mx-auto mb-2" />
-                <h3 className="font-serif font-bold text-base text-[#211F1B]">Lakeview Bar &amp; Grill</h3>
-                <p className="text-[11px] text-[#777067]">Lake Shore Drive, Mangochi, Malawi</p>
-                <p className="text-[10px] text-[#AAA298] mt-1 font-mono">
-                  {new Date().toLocaleDateString('en-GB', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </p>
-              </div>
-
-              <div className="py-3 space-y-2 text-xs">
-                <div className="flex justify-between text-[#777067] text-[11px]">
-                  <span>Table: {activeSession.tableName || 'Table 12'}</span>
-                  <span className="font-mono">Session #5821</span>
-                </div>
-                <div className="flex justify-between text-[#777067] text-[11px]">
-                  <span>Guest: {currentGuest}</span>
-                  <span className="font-mono">Ref: PC-98421</span>
-                </div>
-
-                <div className="border-t border-[#DDD6CA]/60 pt-2 space-y-1.5">
-                  {activeItems.map((item) => (
-                    <div key={item.orderItemId} className="flex justify-between text-[#211F1B]">
-                      <span>
-                        {item.name} <span className="font-mono text-[#777067]">×{item.quantity}</span>
-                      </span>
-                      <span className="font-mono tabular-nums font-bold">{formatKwacha(item.totalPrice)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="border-t border-dashed border-[#DDD6CA] pt-2 space-y-1">
-                  <div className="flex justify-between text-[#777067]">
-                    <span>Subtotal</span>
-                    <span className="font-mono tabular-nums">{formatKwacha(subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-[#777067]">
-                    <span>Service charge (10%)</span>
-                    <span className="font-mono tabular-nums">{formatKwacha(serviceCharge)}</span>
-                  </div>
-                  <div className="flex justify-between font-extrabold text-[#211F1B] text-sm pt-1">
-                    <span>Total Paid</span>
-                    <span className="text-[#C9532F] font-mono tabular-nums">{formatKwacha(totalAmount)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-dashed border-[#DDD6CA] text-center">
-                <div className="flex items-center justify-center gap-1 text-[11px] text-[#166534] font-extrabold mb-3">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Verified PayChangu Settlement</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowReceiptModal(false)}
-                  className="w-full py-2.5 bg-[#211F1B] hover:bg-[#312E29] text-white text-xs font-bold rounded-xl cursor-pointer"
-                >
-                  Close Receipt
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Fiscal & MRA Tax Digital Receipt Modal */}
+        <FiscalReceiptModal
+          session={activeSession}
+          isOpen={showReceiptModal}
+          onClose={() => setShowReceiptModal(false)}
+          guestName={currentGuest}
+          paymentMethod={
+            activeSession.paymentMethod === 'mobile_money'
+              ? `${activeSession.mobileMoneyProvider === 'airtel' ? 'Airtel Money' : 'TNM Mpamba'} (PayChangu)`
+              : activeSession.paymentMethod === 'card'
+              ? 'POS Card Terminal'
+              : 'Cash to Waiter'
+          }
+        />
       </main>
     </div>
   );

@@ -12,12 +12,26 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Table Sessions: live synchronized dining table tabs & orders
+    // Multi-Tenant Restaurant Registry
+    match /tenants/{tenantId} {
+      allow read, write: if true;
+
+      // Scoped Table Sessions
+      match /table_sessions/{tableId} {
+        allow read, write: if true;
+      }
+
+      // Scoped Restaurant Tables
+      match /restaurant_tables/{tableId} {
+        allow read, write: if true;
+      }
+    }
+
+    // Root fallback collections for backward compatibility
     match /table_sessions/{tableId} {
       allow read, write: if true;
     }
 
-    // Restaurant Tables: floor layout, seating and assignments
     match /restaurant_tables/{tableId} {
       allow read, write: if true;
     }

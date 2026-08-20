@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useRestaurant } from '../../context/RestaurantContext';
+import { useTenant } from '../../context/TenantContext';
 import { BrandMark } from '../common/BrandMark';
 import { OrderFlowButton } from '../common/OrderFlowButton';
-import { Sparkles, ArrowRight, Utensils, User, LogOut, RefreshCw } from 'lucide-react';
-import { formatKwacha } from '../../utils/formatters';
+import { Sparkles, ArrowRight, Utensils, User, LogOut, RefreshCw, Building2 } from 'lucide-react';
 
 interface TableWelcomeScreenProps {
   onContinue: () => void;
 }
 
 export function TableWelcomeScreen({ onContinue }: TableWelcomeScreenProps) {
+  const { tenant, formatPrice, allTenants, setTenantSlug } = useTenant();
   const {
     activeSession,
     currentGuest,
@@ -25,6 +26,7 @@ export function TableWelcomeScreen({ onContinue }: TableWelcomeScreenProps) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [showTableSelect, setShowTableSelect] = useState(false);
+  const [showTenantSelect, setShowTenantSelect] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSwitchingGuest, setIsSwitchingGuest] = useState(false);
 
@@ -88,46 +90,93 @@ export function TableWelcomeScreen({ onContinue }: TableWelcomeScreenProps) {
       {/* Main Responsive Container with Safe Spacing */}
       <div className="w-full max-w-md mx-auto px-5 sm:px-6 py-4 sm:py-6 flex-1 flex flex-col justify-between gap-4">
         
-        {/* Zone 1: Top Bar (Brand & Table Picker) */}
+        {/* Zone 1: Top Bar (Brand & Selectors) */}
         <header className="flex items-center justify-between shrink-0 pb-1">
-          <BrandMark showWordmark={true} size="md" variant="terracotta" />
+          <div className="flex items-center gap-2">
+            <BrandMark showWordmark={true} size="md" variant="terracotta" />
+          </div>
 
-          <div className="relative">
-            <button
-              onClick={() => setShowTableSelect(!showTableSelect)}
-              className="text-[11.5px] font-bold text-[#625B53] bg-[#FFFDF9] hover:bg-[#EDE8DF] border border-[#DDD6CA] rounded-full px-3 py-1.5 transition-colors flex items-center gap-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9532F]"
-              title="Click to switch table for testing"
-            >
-              <span>{tableNameBadge}</span>
-            </button>
+          <div className="flex items-center gap-1.5">
+            {/* Multi-Restaurant Subdomain / Tenant Quick-Switch */}
+            <div className="relative">
+              <button
+                onClick={() => setShowTenantSelect(!showTenantSelect)}
+                className="text-[11px] font-bold text-[#625B53] bg-[#FFFDF9] hover:bg-[#EDE8DF] border border-[#DDD6CA] rounded-full px-2.5 py-1.5 transition-colors flex items-center gap-1 cursor-pointer"
+                title="Simulate restaurant subdomain"
+              >
+                <Building2 className="w-3 h-3 text-[#C9532F]" />
+                <span className="max-w-[80px] truncate">{tenant.name.split(' ')[0]}</span>
+              </button>
 
-            {/* Quick table picker popup for multi-table test/demo */}
-            {showTableSelect && (
-              <div className="absolute right-0 mt-1.5 w-52 bg-[#FFFDF9] border border-[#DDD6CA] rounded-2xl shadow-xl p-2 z-40 text-xs">
-                <div className="text-[10px] font-bold text-[#777067] uppercase px-2 py-1 border-b border-[#DDD6CA]">
-                  Select Demo Table
+              {showTenantSelect && (
+                <div className="absolute right-0 mt-1.5 w-60 bg-[#FFFDF9] border border-[#DDD6CA] rounded-2xl shadow-xl p-2 z-50 text-xs">
+                  <div className="text-[10px] font-bold text-[#777067] uppercase px-2 py-1 border-b border-[#DDD6CA]">
+                    Simulate Subdomain
+                  </div>
+                  <div className="mt-1 space-y-1">
+                    {allTenants.map((t) => (
+                      <button
+                        key={t.slug}
+                        onClick={() => {
+                          setTenantSlug(t.slug);
+                          setShowTenantSelect(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-semibold flex items-center justify-between cursor-pointer ${
+                          tenant.slug === t.slug
+                            ? 'bg-[#C9532F] text-white'
+                            : 'text-[#211F1B] hover:bg-[#F5F0E7]'
+                        }`}
+                      >
+                        <div>
+                          <div className="font-bold">{t.name}</div>
+                          <div className={`text-[10px] ${tenant.slug === t.slug ? 'text-white/80' : 'text-[#777067]'}`}>
+                            {t.slug}.orderflow.mw
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="max-h-48 overflow-y-auto mt-1 space-y-1">
-                  {tables.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        setActiveTableId(t.id);
-                        setShowTableSelect(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between cursor-pointer ${
-                        activeTableId === t.id
-                          ? 'bg-[#C9532F] text-white'
-                          : 'text-[#211F1B] hover:bg-[#F5F0E7]'
-                      }`}
-                    >
-                      <span>{t.name}</span>
-                      <span className="text-[10px] opacity-75">{t.section}</span>
-                    </button>
-                  ))}
+              )}
+            </div>
+
+            {/* Quick table picker popup */}
+            <div className="relative">
+              <button
+                onClick={() => setShowTableSelect(!showTableSelect)}
+                className="text-[11.5px] font-bold text-[#625B53] bg-[#FFFDF9] hover:bg-[#EDE8DF] border border-[#DDD6CA] rounded-full px-3 py-1.5 transition-colors flex items-center gap-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9532F]"
+                title="Click to switch table for testing"
+              >
+                <span>{tableNameBadge}</span>
+              </button>
+
+              {showTableSelect && (
+                <div className="absolute right-0 mt-1.5 w-52 bg-[#FFFDF9] border border-[#DDD6CA] rounded-2xl shadow-xl p-2 z-40 text-xs">
+                  <div className="text-[10px] font-bold text-[#777067] uppercase px-2 py-1 border-b border-[#DDD6CA]">
+                    Select Demo Table
+                  </div>
+                  <div className="max-h-48 overflow-y-auto mt-1 space-y-1">
+                    {tables.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => {
+                          setActiveTableId(t.id);
+                          setShowTableSelect(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between cursor-pointer ${
+                          activeTableId === t.id
+                            ? 'bg-[#C9532F] text-white'
+                            : 'text-[#211F1B] hover:bg-[#F5F0E7]'
+                        }`}
+                      >
+                        <span>{t.name}</span>
+                        <span className="text-[10px] opacity-75">{t.section}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </header>
 
@@ -137,20 +186,20 @@ export function TableWelcomeScreen({ onContinue }: TableWelcomeScreenProps) {
           <div>
             <div className="flex items-center gap-2 text-[#C9532F] text-[11px] font-extrabold tracking-widest uppercase mb-1.5">
               <span className="w-4 h-[2px] bg-current inline-block" />
-              <span>Lakeview Bar &amp; Grill · {cleanTableName}</span>
+              <span>{tenant.name} · {cleanTableName}</span>
             </div>
 
             {/* Heading in Editorial Serif */}
-            <h1 className="font-serif font-normal text-[30px] sm:text-[36px] leading-[1.1] tracking-tight text-[#211F1B] max-w-[340px] m-0">
+            <h1 className="font-serif font-normal text-[28px] sm:text-[34px] leading-[1.1] tracking-tight text-[#211F1B] max-w-[340px] m-0">
               Welcome to{' '}
               <span className="italic block text-[#4F4941] font-serif">
-                Lakeview Bar &amp; Grill.
+                {tenant.name}.
               </span>
             </h1>
 
             {/* Subtitle */}
             <p className="text-[12.5px] sm:text-[13px] leading-[1.5] text-[#777067] max-w-[330px] mt-2 font-normal">
-              Browse the menu, order at your own pace, and keep your table's tab together.
+              {tenant.tagline || "Browse the menu, order at your own pace, and keep your table's tab together."}
             </p>
           </div>
 
@@ -165,7 +214,7 @@ export function TableWelcomeScreen({ onContinue }: TableWelcomeScreenProps) {
                 {activeItems.length} {activeItems.length === 1 ? 'item' : 'items'} in progress (
                 {activeSession.guests.join(', ') || 'Guests'}). Total:{' '}
                 <strong className="text-[#211F1B] font-mono tabular-nums">
-                  {formatKwacha(activeSession.totalAmount || activeSession.subtotal)}
+                  {formatPrice(activeSession.totalAmount || activeSession.subtotal)}
                 </strong>
               </p>
             </div>

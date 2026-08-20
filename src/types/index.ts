@@ -5,6 +5,55 @@ export type ItemStatus = 'PLACED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED
 
 export type TableStatus = 'available' | 'occupied' | 'waiting_payment' | 'unattended';
 
+export type StaffRole = 'owner' | 'manager' | 'waiter' | 'kitchen' | 'bartender' | 'cashier';
+
+export type PaymentFeeBearer = 'RESTAURANT' | 'CUSTOMER' | 'SPLIT';
+
+export interface PayChanguConfig {
+  enabled: boolean;
+  publicKey: string;
+  secretKey?: string;
+  feeBearer: PaymentFeeBearer;
+  airtelEnabled: boolean;
+  mpambaEnabled: boolean;
+  cardsEnabled: boolean;
+}
+
+export interface TenantBranding {
+  logoUrl?: string;
+  tagline?: string;
+  coverImageUrl?: string;
+  primaryColor?: string;
+  accentColor?: string;
+}
+
+export interface TenantStaffMember {
+  id: string;
+  name: string;
+  email: string;
+  role: StaffRole;
+  pinCode: string; // 4-digit PIN for quick shift actions
+  assignedSections?: string[];
+  active: boolean;
+}
+
+export interface Tenant {
+  id: string;
+  slug: string; // e.g. 'lakeview' -> lakeview.orderflow.mw
+  name: string;
+  tagline: string;
+  location: string;
+  currency: string; // 'MWK'
+  currencySymbol: string; // 'MK'
+  taxRate: number; // e.g. 0.165
+  serviceChargeRate: number; // e.g. 0.10
+  idleAlertMinutes: number; // e.g. 25
+  autoExpireHours: number; // e.g. 4
+  branding: TenantBranding;
+  paychangu: PayChanguConfig;
+  staff: TenantStaffMember[];
+}
+
 export type PaymentState =
   | 'UNPAID'
   | 'PAYMENT_REQUESTED'
